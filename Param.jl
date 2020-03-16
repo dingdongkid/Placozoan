@@ -13,3 +13,21 @@ struct Param
     celldiameter::Float64      # nominal cell diameter when constructed
     dt::Array{Float64,1}  # simulation time step length (seconds)
 end
+
+# utility for constructing parameter struct
+function trichoplaxparameters( nlayers,
+                               margin,
+                               skeleton_springconstant,
+                               cell_pressureconstant,
+                               cell_surface_energy_density,
+                               cell_diameter,
+                               dt )
+    Param(  nlayers,
+            margin,
+            [skeleton_springconstant/2.0],
+            [cell_pressureconstant],
+            [cell_surface_energy_density],
+            cell_diameter,
+            [dt]
+            )
+end

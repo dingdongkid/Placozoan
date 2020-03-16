@@ -13,3 +13,21 @@ struct State
     edgelength::Array{Float64,1}  # edge rest lengths
     volume::Array{Float64,1}   # volume (area) of each cell
 end
+
+# utility for constructing parameter struct
+function trichoplaxparameters( nlayers,
+                               margin,
+                               skeleton_springconstant,
+                               cell_pressureconstant,
+                               cell_surface_energy_density,
+                               cell_diameter,
+                               dt )
+    Param(  nlayers,
+            margin,
+            [skeleton_springconstant/2.0],
+            [cell_pressureconstant],
+            [cell_surface_energy_density],
+            cell_diameter,
+            [dt]
+            )
+end

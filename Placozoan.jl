@@ -64,6 +64,7 @@ struct Anatomy
     n_vertexcells::Array{Int64,1}  # number of cells containing each vertex
     vertexcells::Array{Int64,2} # index of cells containing each vertex
     skin_neighbour::Array{Int64,2}  # 2 skin neighbours for each skin vertex
+    #cilia_direction::Array{Float64, 2}  # position of cilia force between two vertices
 end
 
 struct State
@@ -104,6 +105,9 @@ function Skeleton(n_cell_layers, cell_diameter)
     return Skeleton(vertex, link, [cell_diameter], layercount, neighbourvertex)
 end
 
+"""
+constructor for trichoplax
+"""
 function Trichoplax(param)
 
     # skeleton is a triangulated disc  (Delaunay triangulation)
@@ -222,7 +226,7 @@ function skeletonlayercount(n_cell_layers)
 end
 
 function skeletonvertices(layercount, edgelength)
-    #
+    # return 2D array with [x, y] locations of all vertices in skeleton
     nlayers = length(layercount)
     nvertices = sum(layercount)
     vertex = fill(0.0, nvertices, 2)  # vertex 1 is [0,0]
@@ -233,6 +237,7 @@ function skeletonvertices(layercount, edgelength)
         for k in 1:layercount[j]  # for each vertex in layer
             i = i + 1
             θ = 2π*(k-1)/layercount[j]
+            # vector multiplication for [x,y], radius*angle
             vertex[i,:] = r*[cos(θ) sin(θ)]
         end
     end
