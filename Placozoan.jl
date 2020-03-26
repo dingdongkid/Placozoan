@@ -577,7 +577,7 @@ function cellvolume(vertex, cell)
     # cell volumes (area in 2D) from cell vertices
 
     nCells = size(cell,1)
-    volume = fill(0.0, nCells )
+    volume = fill(0.0, nCells)
     for i in 1:nCells
         v = 0.0
         for j in 1:6
