@@ -5,7 +5,7 @@
 # MAIN
 
 
-bodylayers = 8 # number of body cell layers
+bodylayers = 6 # number of body cell layers
 margin = 2  # number of layers in gut margin ("brain")
 celldiameter = 10.0
 skeleton_springconstant= 5.0e-2
@@ -77,7 +77,7 @@ for tick in 1:25
     trichoplax = morph(trichoplax, .0001, 25)
 
     redraw(trichoplax,cells_handle)
-    potential_remap(trichoplax, ch, 1)
+#    potential_remap(trichoplax, ch, 1)
 
     println(tick)
     display(scene)

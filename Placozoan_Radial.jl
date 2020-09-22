@@ -1,6 +1,8 @@
 #Placozoan_radial.jl
 
-bodylayers = 12 # number of body cell layers
+
+
+bodylayers = 6 # number of body cell layers
 margin = 5  # number of layers in gut margin ("brain")
 celldiameter = 10.0
 skeleton_springconstant = 5.0e-2
@@ -43,32 +45,20 @@ display(scene)
 println(trichoplax.anatomy.cellvertexindex[1, :])
 println(trichoplax.state.vertex[2,:])
 
+
 function findcentroid(vertices)
-    n = size(trichoplax.anatomy.cellvertexindex,2)
-    v = fill(0, n)
-    x = 0
-    y = 0
-    @inbounds for i = 1:n
-        v[i] = trichoplax.anatomy.cellvertexindex[vertices, i]
-    end
-#    println(v)
+    
+    centre = colmeans(verticesofcell(vertices, trichoplax))
+    scatter!(centre, markersize = 2, color = :red)
 
-    @inbounds for i = 1:n
-        a = v[i]
-        x1 = trichoplax.state.vertex[a, 1]
-        x = x + x1
-
-        y1 = trichoplax.state.vertex[a, 2]
-        y = y + y1
-    end
-
-    x = x/n
-    y = y/n
-
-    scatter!([x y], markersize = 2, color = :red)
-    return [x y]
+    return centre
 end
 
+#=
+function findCentre(trichoplax)
+    centre = colmeans(verticesofcell(i, trichoplax))
+end
+=#
 function findfurthest(vertices)
     n = size(trichoplax.anatomy.cellvertexindex,2)
     v = fill(0, n)
@@ -81,31 +71,54 @@ function findfurthest(vertices)
 
     @inbounds for i = 1:n
         a = v[i]
-        x1 = trichoplax.state.vertex[a, 1]
+        x = trichoplax.state.vertex[a, 1]
 
-        y1 = trichoplax.state.vertex[a, 2]
-        d[i] = sqrt(abs2(x1) + abs2(y1))
+        y = trichoplax.state.vertex[a, 2]
+        d[i] = sqrt(abs2(x) + abs2(y))
     end
     #println(d)
     m = findmax(d)
+    trichoplax.anatomy.cilia_direction[vertices] = m[2]
     #println(m)
 
     scatter!([trichoplax.state.vertex[v[6], 1] trichoplax.state.vertex[v[6], 2]], markersize = 2, color = :blue)
-    x2 = [findcentroid(vertices)[1], trichoplax.state.vertex[v[6], 1]]
-    y2 = [findcentroid(vertices)[2], trichoplax.state.vertex[v[6], 2]]
-    lines!(x2, y2)
+    x = [findcentroid(vertices)[1], trichoplax.state.vertex[v[6], 1]]
+    y = [findcentroid(vertices)[2], trichoplax.state.vertex[v[6], 2]]
+    lines!(x, y)
+
+end
+
+function f_direction(vertices)
+    n = size(trichoplax.anatomy.cellvertexindex,2)
+    v = fill(0, n)
+    println(v)
 
 end
 
 
-
+f_direction(2)
 findcentroid(50)
 findfurthest(50)
 
 
 k = 1
-while k < 380
+while k < 80
     findcentroid(k)
     findfurthest(k)
     global k = k + 1
 end
+
+
+#=
+cilia force function {
+check cilia_direction (usually vertex 6)
+if (cilia active)
+    force inversely proportional to stretch
+    figure out how to add force vector
+        i.e. location = location +[x][y] of cilia move
+        probably external to gradient calculations
+        possibly before? adds extra stretch possibility
+        add to each vertex of the active cell
+}
+
+=#

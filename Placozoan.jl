@@ -64,7 +64,9 @@ struct Anatomy
     n_vertexcells::Array{Int64,1}  # number of cells containing each vertex
     vertexcells::Array{Int64,2} # index of cells containing each vertex
     skin_neighbour::Array{Int64,2}  # 2 skin neighbours for each skin vertex
+    cilia_direction::Array{Int64,1} # furthest vertex from trichoplax centre
     #cilia_direction::Array{Float64, 2}  # position of cilia force between two vertices
+
 end
 
 struct State
@@ -148,6 +150,8 @@ function Trichoplax(param)
 
   gutboundary = getgutboundary(cell, vertex, layercount, margin)
 
+  cilia_direction = fill(6, size(cell, 1))
+
   # move centre of cell 1 to (0,0)
   n = size(vertex,1)
   x0 = colmeans(vertex[1:6,:])
@@ -184,7 +188,8 @@ function Trichoplax(param)
                       neighbourcell,
                       n_vertexcells,
                       vertexcells,
-                      skin_neighbour   )
+                      skin_neighbour,
+                      cilia_direction   )
 
 
    trichoplax = Trichoplax(  param, anatomy, state )
@@ -1105,12 +1110,14 @@ function localShapeEnergyGradient(dv::Float64, trichoplax::Trichoplax)
 end
 
 function morph(trichoplax, rate::Float64 = .005, nsteps::Int64 = 25)
-
+friction = .01
   @inbounds for t = 1:nsteps
       ∇ = localShapeEnergyGradient(1e-4*trichoplax.param.celldiameter, trichoplax)
-      trichoplax.state.vertex[:,:] = trichoplax.state.vertex - rate*∇
+      # trichoplax.state.vertex[:,:] = trichoplax.state.vertex - rate*∇
+      trichoplax.state.vertex[:,:] = trichoplax.state.vertex - (1-friction)*(rate*∇)
   end
 
+# could put the friction in here, or in the local energy gradient function
   #trichoplax = cellverticesfromskeleton(trichoplax)
 
   return trichoplax
