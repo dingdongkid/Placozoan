@@ -3,7 +3,7 @@
 using Makie
 using Colors
 using OffsetArrays
-
+using Distributions
 
 # colors
 # scene
@@ -11,9 +11,10 @@ colour_mat = RGBA(.05, .35, .35, 1.0)
 colour_background = RGBA(0.0, 0.0, 0.0, 1.0)
 
 # external/world particles
-colour_likelihood = :yellow
-colour_prior = RGB(0.75, 0.45, 0.45)
-colour_posterior = RGB(0.85, 0.25, 0.25)
+colour_likelihood = RGB(1.0, 0.55, 0.25)
+#colour_prior = RGB(0.75, 0.45, 0.45)
+#colour_posterior = RGB(0.85, 0.25, 0.25)
+colour_posterior = RGB(.75,.75,1.0)
 
 # internal/spike particles
 colour_observation = :yellow
@@ -22,16 +23,16 @@ colour_observation = :yellow
 # receptors
 colour_receptor_OPEN  = RGB(1.0, 1.0, 0.25)
 colour_receptor_CLOSED  = RGB(0.35, 0.45, 0.35)
-sizeof_receptor = 10.0
+sizeof_receptor = 8.0
 
 # Particle sizes
-size_likelihood = 2
-size_prior = 4
-size_posterior = 4
+size_likelihood = 1.5
+#size_prior = 4
+size_posterior = 2.5
 
-size_observation = 2
-size_prediction = 2
-size_belief = 2
+size_observation = 1.5
+#size_prediction = 2
+size_belief = 2.0
 
 # Physics structure
 # contains physical parameters
@@ -77,41 +78,30 @@ struct Observer
 
   range::Int64 # world radius = range of indices for arrays
   likelihood::OffsetArray     # likelihood given all receptor states
-  prior::OffsetArray
   posterior::OffsetArray
   nLparticles::Int64
-  nPparticles::Int64
   nBparticles::Int64
   Lparticle::Array{Float64,2}    # likelihood particles (samples)
-  Pparticle::Array{Float64,2}    # prior particles
   Bparticle::Array{Float64,2}   # belief (posterior) particles
-  Pparticle_step::Array{Float64,2}  # particle prediction steps
   Bparticle_step::Array{Float64,2}  # particle prediction steps
-  priorSD::Float64  # std. dev. of prior
-  posteriorSD::Float64  # std. dev. of prior
+  priormean::Float64
+  priorsd::Float64  # std. dev. of prior
 
 end
 
 # Observer constructor
-function Observer(range,
-                  nLparticles::Int64, nPparticles::Int64, nBparticles::Int64,
-                  priorSD::Float64, posteriorSD::Float64)
+function Observer(range, nLparticles::Int64, nBparticles::Int64,
+                 priormean::Float64, priorsd::Float64)
 
   likelihood = zeros(-range:range, -range:range)
-  prior = zeros(-range:range, -range:range)
   posterior = zeros(-range:range, -range:range)
 
   Lparticle = zeros(nLparticles,2)
-  Pparticle = zeros(nPparticles,2)
-  Pparticle_step = zeros(nPparticles,2)
   Bparticle = zeros(nBparticles,2)
   Bparticle_step = zeros(nBparticles,2)
 
-  return Observer(range, likelihood, prior, posterior,
-               nLparticles, nPparticles, nBparticles,
-               Lparticle, Pparticle, Bparticle,
-               Pparticle_step, Bparticle_step,
-               priorSD, posteriorSD)
+  return Observer(range, likelihood, posterior, nLparticles, nBparticles,
+               Lparticle, Bparticle, Bparticle_step, priormean, priorsd)
 end
 
 # dummy observer constructor
@@ -119,7 +109,7 @@ end
 function Observer()
   z = zeros(1,1)
   zOff = OffsetArray(z, 0:0, 0:0)
-  Observer(1, zOff, zOff, zOff, 1, 1, 1, z, z, z, z, z, 1.0, 1.0)
+  Observer(1, zOff, zOff, 1, 1, z, z, z, 1.0, 1.0)
 end
 
 
@@ -207,14 +197,13 @@ end
 #
 function Placozoan(radius::Int64, margin::Int64, fieldrange::Int64,
                     nEreceptors::Int64, receptorSize::Float64, eRange::Int64,
-                    nLparticles, nPparticles, nBparticles,
-                    priorSD::Float64,   posteriorSD::Float64,
+                    nLparticles, nBparticles,
+                    priormean::Float64, priorsd::Float64,
                     bodycolor=RGBA(0.9, 0.75, 0.65, 0.5),
-                    gutcolor = RGBA(1., 0.65, 0.8, 0.5),
+                    gutcolor = RGBA(1., 0.65, 0.8, 0.25),
                     edgecolor = RGB(0.0, 0.0, 0.0) )
 
-    observer = Observer(eRange, nLparticles, nPparticles, nBparticles,
-               priorSD, posteriorSD)
+    observer = Observer(eRange, nLparticles, nBparticles, priormean, priorsd)
     receptor = Ereceptor(eRange,radius, Nreceptors, receptorSize,
               colour_receptor_OPEN, colour_receptor_CLOSED)
 
@@ -299,14 +288,14 @@ dipoleFieldstrength(r::Float64) = 2π*physics.ρ*physics.I*physics.δ./r.^3
 # as a function of distance in μm from edge of body
 # due to all dipoles in a placozoan.
 # updates placozoan.field and placozoan.potential
-function placozoanFieldstrength(p::Placozoan)
+function placozoanFieldstrength!(p::Placozoan)
   for a in p.celldiam:p.celldiam:(p.gutradius - p.celldiam)
     n = round(2π*a/p.celldiam)    # number of dipoles in layer
     x = [ a*cos(2π*i/n) for i in 1:n]     # location of dipole
     y = [ a*sin(2π*i/n) for i in 1:n]
     for d in 1:p.fieldrange
-    #  r = sqrt.(((d.+p.radius.-x).^2 + y.^2)).*1.0e-4
-      r = sqrt.(((d.-x).^2 + y.^2)).*1.0e-4
+      r = sqrt.(((d.+p.radius.-x).^2 + y.^2)).*1.0e-4
+      #r = sqrt.(((d.-x).^2 + y.^2)).*1.0e-4
       p.field[d] = p.field[d] + sum(dipoleFieldstrength.(r))
     end
     # electric field in μV/cm converted to potential across 10μm receptor
@@ -356,28 +345,6 @@ function likelihood(p::Placozoan)
 
  end
 
-
-
- # # construct sensory particles in prey margin
- # # by reflectObservationg likelihood sample points through skin
- # function reflectObservation(p::Placozoan)
- #   R = sqrt.(p.observer.Lparticle[:,1].^2 + p.observer.Lparticle[:,2].^2)
- #   r = (p.radius .- p.marginwidth*(R.-p.radius)./
- #       (p.observer.range-prey.radius))::Array{Float64,1}
- #   #return (r.*xLhdSample./R, r.*yLhdSample./R)
- #   # observationPlot[1] = r.*W.Lparticle[:,1]./R            # update reflected sample plot
- #   # observationPlot[2] = r.*W.Lparticle[:,2]./R
- #
- #   observation = r.*p.observer.Lparticle./R
- # end
- #
- # function reflectBelief(beliefParticle_xy)
- #   R = sqrt.(beliefParticle_xy[:,1].^2 + beliefParticle_xy[:,2].^2)
- #   r = (preyRadius .- preyMargin*(R.-preyRadius)./(matRadius-preyRadius))::Array{Float64,1}
- #   #return (r.*xLhdSample./R, r.*yLhdSample./R)
- #   beliefPlot[1] = r.*beliefParticle_xy[:,1]./R            # update reflected sample plot
- #   beliefPlot[2] = r.*beliefParticle_xy[:,2]./R
- # end
 
 function reflect(p::Placozoan)
 
@@ -448,7 +415,7 @@ function orbit(dψ::Float64, p::Array{Float64,2})
   # p.x[] =  cos(dψ)*p.x[] + sin(dψ)*p.y[]
   # p.y[] = -sin(dψ)*p.x[] + cos(dψ)*p.y[]
   p = p*[cos(dψ) -sin(dψ); sin(dψ) cos(dψ)]
-
+   nothing
 end
 
 # predator movement
@@ -467,13 +434,13 @@ function stalk(predator::Placozoan, prey::Placozoan, Δ::Float64)
   predator.y[] += predator.step[2]
   #orbit(π/w.nFrames, predator)
 
-  d2 = sqrt.(prey.observer.Pparticle[:,1].^2 + prey.observer.Pparticle[:,2].^2)
-  v2 = sign.( prey.radius  + Δ .- d2)
-  prey.observer.Pparticle_step .= 0.8*prey.observer.Pparticle_step +
-                0.2*randn(prey.observer.nPparticles,2).*predator.speed[] .+
-                0.1*v2.*predator.speed[].*prey.observer.Pparticle ./ d2
-  prey.observer.Pparticle .=  prey.observer.Pparticle +
-                              prey.observer.Pparticle_step
+  # d2 = sqrt.(prey.observer.Pparticle[:,1].^2 + prey.observer.Pparticle[:,2].^2)
+  # v2 = sign.( prey.radius  + Δ .- d2)
+  # prey.observer.Pparticle_step .= 0.8*prey.observer.Pparticle_step +
+  #               0.2*randn(prey.observer.nPparticles,2).*predator.speed[] .+
+  #             0.1*v2.*predator.speed[].*prey.observer.Pparticle ./ d2
+  # prey.observer.Pparticle .=  prey.observer.Pparticle +
+  #                             prey.observer.Pparticle_step
   #orbit(π/w.nFrames, w.Pparticle)
 
   d3 = sqrt.(prey.observer.Bparticle[:,1].^2 + prey.observer.Bparticle[:,2].^2)
@@ -493,123 +460,68 @@ function stalk(predator::Placozoan, prey::Placozoan, Δ::Float64)
 
 end
 
-# initialize posterior samples
-# truncated Gaussian distribution of distance from mat edge
-# (i.e. diffusion from edge with absorbing barrier at prey)
-function initialize_prior_Gaussian(p::Placozoan)
-
-  nP = 0
-  while nP < p.observer.nPparticles
-    ϕ = 2.0*π*rand(1)[]
-    β = 1.0e12
-    while β > (p.observer.range - p.radius)
-      β = p.observer.priorSD[]*abs(randn(1)[])
-    end
-    #candidate = -matRadius .+ sceneWidth.*rand(2)  # random point in scene
-    # d = sqrt(candidate[1]^2 + candidate[2]^2) # candidate distance from origin
-    # if (d>preyRadius) & (d<matRadius)
-      nP = nP+1
-      p.observer.Pparticle[nP,:] =  (p.observer.range-β).*[cos(ϕ), sin(ϕ)]
-    # end
-  end
-end
-
 function initialize_posterior_Gaussian(p::Placozoan)
 
   nB = 0
   while nB < p.observer.nBparticles
+
+    # uniform random angle + Gaussian range (truncated at edge of body and mat)
     ϕ = 2.0*π*rand(1)[]
-    β = 1.0e12
-    while β > (p.observer.range - p.radius)
-      β = p.observer.posteriorSD[]*abs(randn(1)[])
+    β = 0.0
+    while (β > p.observer.range) | (β < p.radius)
+      β = p.observer.priormean + p.observer.priorsd*randn(1)[]
     end
-    #candidate = -matRadius .+ sceneWidth.*rand(2)  # random point in scene
-    # d = sqrt(candidate[1]^2 + candidate[2]^2) # candidate distance from origin
-    # if (d>preyRadius) & (d<matRadius)
-      nB = nB+1
-      p.observer.Bparticle[nB,:] =  (p.observer.range - β).*[cos(ϕ), sin(ϕ)]
-    # end
+
+    nB = nB+1
+    p.observer.Bparticle[nB,:] =  β.*[cos(ϕ), sin(ϕ)]
   end
 end
 
-function initialize_prior_uniform(p::Placozoan)
-
-    ϕ = 2.0*π*rand(p.observer.nPparticles)
-    β = p.radius .+ rand(p.observer.nPparticles).*(p.observer.range - p.radius)
-    p.observer.Pparticle[:] =  hcat(β.*cos.(ϕ), β.*sin.(ϕ))
-
-end
-
-# function posteriorPredict(w::World, predator::Placozoan)
-#
-#   w.Pparticle_step .= 0.8*w.Pparticle_step +
-#                      1.0*randn(w.nPparticles,2).*predator.speed[]
-#   w.Pparticle .=  w.Pparticle + w.Pparticle_step
-#   #orbit(π/w.nFrames, w.Pparticle)
-#
-# end
-
-# impose boundaries on posterior particle movement
- function steadyPrior(p::Placozoan)
-
-     pDie = 0.005
-   for j in 1:p.observer.nPparticles
-
-     d = sqrt(p.observer.Pparticle[j,1]^2 + p.observer.Pparticle[j,2]^2)
-
-     # mat edge is a dissipative reflecting boundary
-     # particles are brought to rest if they hit it
-     if d>p.observer.range
-        p.observer.Pparticle[j,:] =
-                         p.observer.range.*p.observer.Pparticle[j,:]./d
-        p.observer.Pparticle_step[j,:] = [0.0, 0.0]
-
-     # edge of prey is an absorbing barrier
-     # particles are anihilated if they hit it
-     # and are reborn at rest on the edge of the mat
-   elseif d < prey.radius
-        ϕ = 2.0*π*rand(1)[]
-        p.observer.Pparticle[j,:] = p.observer.range.*[cos(ϕ), sin(ϕ)]
-        p.observer.Pparticle_step[j,:] = [0.0, 0.0]
-
-     # particles die at random
-     # and are replaced by new particles at the mat edge
-   elseif rand()[]<pDie
-         ϕ = 2*π*rand()[]
-         p.observer.Pparticle[j,:] =
-              [p.observer.range*cos(ϕ), p.observer.range*sin(ϕ)]
-         p.observer.Pparticle_step[j,:] = [0.0, 0.0]
-      end
-
-   end
- end
-
-# Bayes update rule: Create a new belief particle
-# when an observation particle collides with a hypothesis particle
-# A hypothesis is a belief or a prior belief
 function bayesUpdate(p::Placozoan)
 
-  δ2 = 0.50
-  for i in 1:p.observer.nLparticles
-
-    for j in 1:p.observer.nPparticles  # check for collisions with prior
-      if (p.observer.Pparticle[j,1] - p.observer.Lparticle[i,1])^2 +
-         (p.observer.Pparticle[j,2] - p.observer.Lparticle[i,2])^2 < δ2   # collision
-            ireplace = rand(1:p.observer.nBparticles[])[]  # pick particle to replace
-            p.observer.Bparticle[ireplace,:] =
-                                 p.observer.Lparticle[i,:] + 8.0*randn(2)
-      end
-    end
-
+    δ2 = 9.0   # squared collision range
+    sδ = 9.0  # scatter range
+    nCollision = 0
+    collision = fill(0, 10*p.observer.nLparticles)
+    # list Bparticles that have collided with Lparticles
+    for i in 1:p.observer.nLparticles
       for j in 1:p.observer.nBparticles[]  # check for collisions with belief
         if (p.observer.Bparticle[j,1] - p.observer.Lparticle[i,1])^2 +
-           (p.observer.Bparticle[j,2] - p.observer.Lparticle[i,2])^2 < δ2   # collision
-              ireplace = rand(1:p.observer.nBparticles[])[]  # pick particle to replace
-              p.observer.Bparticle[ireplace,:] =
-                   p.observer.Lparticle[i,:] + 8.0*randn(2)
+          (p.observer.Bparticle[j,2] - p.observer.Lparticle[i,2])^2 < δ2   # collision
+           nCollision = nCollision + 1
+           collision[nCollision] = j
+         end
+       end
+     end
+     if nCollision > 0
+     # each collision produces a Poisson-distributed number of new particles
+     # such that expected number of new particles is p.observer.nBparticles
+     newBelief = fill(0.0, p.observer.nBparticles, 2)
+
+     n_newparticles = rand(Poisson(p.observer.nBparticles/nCollision), nCollision)
+     count = 0
+     for i in 1:nCollision
+        for j in 1:n_newparticles[i]
+          count = count + 1
+          if count <= p.observer.nBparticles
+          newBelief[count,:] = p.observer.Bparticle[collision[i],:] + sδ*randn(2)
+          end
         end
-      end   # for Bparticles
+      end
 
-    end  # for Lparticles
+    p.observer.Bparticle[:] = newBelief[:]
 
-  end
+    # draw 100S% of Bparticles from prior
+    S = 0.002
+    nscatter = Int(round(S*p.observer.nBparticles))
+    iscatter = rand(1:p.observer.nBparticles, nscatter )
+    ϕ = 2*π*rand(nscatter)
+    r =  p.observer.priormean .+  p.observer.priorsd.*randn(nscatter)
+    for i in 1:nscatter
+      p.observer.Bparticle[iscatter[i], :] = [r[i]*cos(ϕ[i]), r[i]*sin(ϕ[i])]
+      p.observer.Bparticle_step[iscatter[i],:] = [0.0, 0.0]
+    end
+
+end
+
+end
