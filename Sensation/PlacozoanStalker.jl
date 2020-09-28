@@ -2,10 +2,9 @@
 
 #import BayesianPlacozoan
 
-# NO_PLOT = false
-
+NO_PLOT = false
 # simulation parameters
-nFrames = 600            # number of animation frames
+nFrames = 600         # number of animation frames
 mat_radius = 400
 approach_Δ = 25.0         # predator closest approach distance
 dt = 1.00
@@ -61,10 +60,11 @@ initialize_posterior_Gaussian(prey)
 # used to force scene update (nothing depends explicitly on time)
 t = Node(0.0)
 
-# if NO_PLOT == false
+if NO_PLOT == false
 
 # construct scene
 WorldSize = 2*mat_radius+1
+
 scene = Scene(resolution = (WorldSize, WorldSize),
               limits = FRect(-mat_radius, -mat_radius ,WorldSize, WorldSize ),
               show_axis=false, backgroundcolor = colour_background)
@@ -143,6 +143,7 @@ record(scene, "PlacozoanPerception.mp4", framerate = 24, 1:nFrames) do i
     likelihood(prey)      # likelihood given receptor states
     sample_likelihood(prey)     # random sample from likelihood
     bayesUpdate(prey)
+    particleEvaluation(predator, prey, i)
 
     (observation, belief) = reflect(prey) # reflect samples into margin
 
@@ -169,12 +170,15 @@ record(scene, "PlacozoanPerception.mp4", framerate = 24, 1:nFrames) do i
 
 end
 
-# else  # NO_PLOT == true
-#     for i in 1:nFrames
-#         stalk(predator, prey, approach_Δ)
-#         updateReceptors(prey, predator)
-#         likelihood(prey)      # likelihood given receptor states
-#         sample_likelihood(prey)     # random sample from likelihood
-#         bayesUpdate(prey)
-#     end
-# end
+#println(prey.observer.Bparticle[1,2])
+#println(prey.observer.Bparticle[1,1])
+ else  # NO_PLOT == true
+     for i in 1:nFrames
+         stalk(predator, prey, approach_Δ)
+         updateReceptors(prey, predator)
+         likelihood(prey)      # likelihood given receptor states
+         sample_likelihood(prey)     # random sample from likelihood
+         bayesUpdate(prey)
+         particleEvaluation(predator, prey, i)
+     end
+ end
