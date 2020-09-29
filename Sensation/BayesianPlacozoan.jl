@@ -188,6 +188,7 @@ struct Placozoan
   color::RGBA{Float64}
   gutcolor::RGBA{Float64}
   edgecolor::RGB{Float64}
+  evaluations::Array{Float64, 2}
 end
 
 # placozoan constructor
@@ -207,23 +208,24 @@ function Placozoan(radius::Int64, margin::Int64, fieldrange::Int64,
   observer = Observer(eRange, nLparticles, nBparticles, priormean, priorsd)
   receptor = Ereceptor(eRange,radius, Nreceptors, receptorSize,
   colour_receptor_OPEN, colour_receptor_CLOSED)
-
+  evaluations = zeros(nBparticles,2)
   if fieldrange<1 fieldrange = 1; end
 
   return Placozoan(radius, margin, radius-margin, 12.0, [0.0], [0.0],
   zeros(fieldrange), zeros(fieldrange), fieldrange,
   receptor, observer, [0.0], [0.0, 0.0],
-  bodycolor, gutcolor, edgecolor )
+  bodycolor, gutcolor, edgecolor, evaluations )
 end
 
 # placozoan constructor with field but no receptors or observer
 function Placozoan(radius::Int64, margin::Int64, fieldrange::Int64,
   bodycolor::RGBA, gutcolor::RGBA, edgecolor::RGB)
+  evaluations = zeros(0,0)
 
   return Placozoan(radius, margin, radius-margin, 12.0, [0.0], [0.0],
   zeros(fieldrange), zeros(fieldrange), fieldrange,
   Ereceptor(), Observer(), [0.0], [0.0, 0.0],
-  bodycolor, gutcolor, edgecolor )
+  bodycolor, gutcolor, edgecolor, evaluations )
 
 end
 
@@ -559,14 +561,18 @@ function particleEvaluation(predator::Placozoan, prey::Placozoan, t::Int64)
 
     angles[i,1] = atan(prey.observer.Bparticle[i,2], prey.observer.Bparticle[i,1])
     angles[i,2] = checkAngle(angles[i,1], Pa)
+    prey.evaluations[i,1] = angles[i,2]
 
     distances[i,1] = sqrt(prey.observer.Bparticle[i,1]^2 + prey.observer.Bparticle[i,2]^2)
     distances[i,2] = checkDistance(distances[i,1], Pd)
-
+    prey.evaluations[i,2] = distances[i,2]
   end
-  if t == 600
-    println(angles[:,2])
+  if t == 250
+    println(distances[250,2])
     println(Pa)
+    println(prey.evaluations[250,2])
   end
 
 end
+
+println(prey.evaluations[250,2])

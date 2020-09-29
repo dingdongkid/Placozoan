@@ -4,7 +4,7 @@
 
 NO_PLOT = false
 # simulation parameters
-nFrames = 600         # number of animation frames
+nFrames = 250       # number of animation frames
 mat_radius = 400
 approach_Δ = 25.0         # predator closest approach distance
 dt = 1.00
@@ -19,6 +19,8 @@ n_posterior_particles = 2500
 # observer = Observer(mat_radius,
 #             n_likelihood_particles, n_prior_particles, n_posterior_particles,
 #             approach_Δ)
+
+total_evals = Array{Float64,3}(undef, nFrames, 2, n_posterior_particles)
 
 # construct prey
 prey_radius = 200
@@ -144,6 +146,11 @@ record(scene, "PlacozoanPerception.mp4", framerate = 24, 1:nFrames) do i
     sample_likelihood(prey)     # random sample from likelihood
     bayesUpdate(prey)
     particleEvaluation(predator, prey, i)
+    for k in 1:prey.observer.nBparticles
+        total_evals[i,1,k] = prey.evaluations[k,1]
+        total_evals[i,2,k] = prey.evaluations[k,2]
+    end
+
 
     (observation, belief) = reflect(prey) # reflect samples into margin
 
@@ -180,5 +187,11 @@ end
          sample_likelihood(prey)     # random sample from likelihood
          bayesUpdate(prey)
          particleEvaluation(predator, prey, i)
+         for k in 1:prey.observer.nBparticles
+             total_evals[i,1,k] = prey.evaluations[k,1]
+             total_evals[i,2,k] = prey.evaluations[k,2]
+         end
      end
  end
+
+println(total_evals[250,2,250])
