@@ -4,6 +4,7 @@ using Makie
 using Colors
 using OffsetArrays
 using Distributions
+using DataFrames
 using CSV
 
 # colors
@@ -168,6 +169,23 @@ function Ereceptor()
   Array{OffsetArray,1}(undef,1), RGB(0,0,0), RGB(0,0,0))
 end
 
+struct Evaluations
+  angles::Array{Float64, 2}
+  distances::Array{Float64, 2}
+end
+
+function Evaluations()
+  angles = zeros(0,0)
+  distances = zeros(0,0)
+  return Evaluations(angles, distances)
+end
+
+function Evaluations(frames::Int64, particles::Int64)
+  angles = zeros(frames, particles)
+  distances = zeros(frames, particles)
+  return Evaluations(angles, distances)
+end
+
 # Placozoan structure
 struct Placozoan
   radius::Float64
@@ -188,7 +206,7 @@ struct Placozoan
   color::RGBA{Float64}
   gutcolor::RGBA{Float64}
   edgecolor::RGB{Float64}
-  evaluations::Array{Float64, 2}
+  evaluations::Evaluations
 end
 
 # placozoan constructor
@@ -200,7 +218,7 @@ end
 function Placozoan(radius::Int64, margin::Int64, fieldrange::Int64,
   nEreceptors::Int64, receptorSize::Float64, eRange::Int64,
   nLparticles, nBparticles,
-  priormean::Float64, priorsd::Float64,
+  priormean::Float64, priorsd::Float64, frames::Int64,
   bodycolor=RGBA(0.9, 0.75, 0.65, 0.5),
   gutcolor = RGBA(1., 0.65, 0.8, 0.25),
   edgecolor = RGB(0.0, 0.0, 0.0) )
@@ -208,7 +226,8 @@ function Placozoan(radius::Int64, margin::Int64, fieldrange::Int64,
   observer = Observer(eRange, nLparticles, nBparticles, priormean, priorsd)
   receptor = Ereceptor(eRange,radius, Nreceptors, receptorSize,
   colour_receptor_OPEN, colour_receptor_CLOSED)
-  evaluations = zeros(nBparticles,2)
+  evaluations = Evaluations(frames, nBparticles)
+
   if fieldrange<1 fieldrange = 1; end
 
   return Placozoan(radius, margin, radius-margin, 12.0, [0.0], [0.0],
@@ -220,14 +239,14 @@ end
 # placozoan constructor with field but no receptors or observer
 function Placozoan(radius::Int64, margin::Int64, fieldrange::Int64,
   bodycolor::RGBA, gutcolor::RGBA, edgecolor::RGB)
-  evaluations = zeros(0,0)
 
   return Placozoan(radius, margin, radius-margin, 12.0, [0.0], [0.0],
   zeros(fieldrange), zeros(fieldrange), fieldrange,
   Ereceptor(), Observer(), [0.0], [0.0, 0.0],
-  bodycolor, gutcolor, edgecolor, evaluations )
+  bodycolor, gutcolor, edgecolor, Evaluations() )
 
 end
+
 
 # # computes Bayesian receptive fields for each receptor
 # # i.e. normalized likelihood for nearest edge of predator at (x,y)
@@ -549,7 +568,7 @@ end
 
 function particleEvaluation(predator::Placozoan, prey::Placozoan, t::Int64)
 
-  Pd = sqrt(predator.x[]^2 + predator.y[]^2) - predator.radius #- prey.radius
+  Pd = sqrt(predator.x[]^2 + predator.y[]^2) - predator.radius# - prey.radius
   Pa = atan(predator.y[], predator.x[])
   #println(Pd)
   #for every posterior particle x/y
@@ -561,18 +580,36 @@ function particleEvaluation(predator::Placozoan, prey::Placozoan, t::Int64)
 
     angles[i,1] = atan(prey.observer.Bparticle[i,2], prey.observer.Bparticle[i,1])
     angles[i,2] = checkAngle(angles[i,1], Pa)
-    prey.evaluations[i,1] = angles[i,2]
+    #prey.evaluations[i,1] = angles[i,2]
 
-    distances[i,1] = sqrt(prey.observer.Bparticle[i,1]^2 + prey.observer.Bparticle[i,2]^2)
+    distances[i,1] = sqrt(prey.observer.Bparticle[i,1]^2 + prey.observer.Bparticle[i,2]^2)# - prey.radius
     distances[i,2] = checkDistance(distances[i,1], Pd)
-    prey.evaluations[i,2] = distances[i,2]
+    #prey.evaluations[i,2] = distances[i,2]
+
+    if 0 < size(prey.evaluations.angles, 1) >= t
+      prey.evaluations.angles[t,i] = angles[i,2]
+      prey.evaluations.distances[t,i] = distances[i,2]
+    end
   end
-  if t == 250
-    println(distances[250,2])
-    println(Pa)
-    println(prey.evaluations[250,2])
-  end
+  # if t == 250
+  #   println(distances[250,2])
+  #   println(Pa)
+  #   println(prey.evaluations.distances[250,2500])
+  # end
 
 end
 
-println(prey.evaluations[250,2])
+# println(prey.evaluations.distances[250,2300])
+# size(prey.evaluations.angles, 1) > 0
+
+function evaluationCSV(arr::Array{Float64,2}, name::String)
+  filename = string(name, ".csv")
+  df = convert(DataFrame, arr')
+  df |> CSV.write(filename)
+end
+
+function evaluationCSV(arr::Array{Float64,2}, name::String, i::Int64)
+  filename = string(name, i, ".csv")
+  df = convert(DataFrame, arr')
+  df |> CSV.write(filename)
+end
