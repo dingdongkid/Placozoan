@@ -170,20 +170,17 @@ function Ereceptor()
 end
 
 struct Evaluations
-  angles::Array{Float64, 2}
-  distances::Array{Float64, 2}
+  eval::Array{Float64, 2}
 end
 
 function Evaluations()
-  angles = zeros(0,0)
-  distances = zeros(0,0)
-  return Evaluations(angles, distances)
+  eval = zeros(0,0)
+  return Evaluations(eval)
 end
 
-function Evaluations(frames::Int64, particles::Int64)
-  angles = zeros(frames, particles)
-  distances = zeros(frames, particles)
-  return Evaluations(angles, distances)
+function Evaluations(frames::Int64)
+  eval = zeros(frames, 6)
+  return Evaluations(eval)
 end
 
 # Placozoan structure
@@ -226,7 +223,7 @@ function Placozoan(radius::Int64, margin::Int64, fieldrange::Int64,
   observer = Observer(eRange, nLparticles, nBparticles, priormean, priorsd)
   receptor = Ereceptor(eRange,radius, Nreceptors, receptorSize,
   colour_receptor_OPEN, colour_receptor_CLOSED)
-  evaluations = Evaluations(frames, nBparticles)
+  evaluations = Evaluations(frames)
 
   if fieldrange<1 fieldrange = 1; end
 
@@ -546,70 +543,4 @@ function bayesUpdate(p::Placozoan)
 
   end
 
-end
-
-function checkDistance(d1::Float64, d2::Float64)
-  n = abs(d1-d2)
-  n2 = n/d1
-  return n2
-end
-
-
-function checkAngle(θ1::Float64, θ2::Float64)
-  n = (θ1-θ2)
-  if n > π
-    n = n - 2π
-  end
-  if n < -π
-    n = n+2π
-  end
-  return abs(n)/2π
-end
-
-function particleEvaluation(predator::Placozoan, prey::Placozoan, t::Int64)
-
-  Pd = sqrt(predator.x[]^2 + predator.y[]^2) - predator.radius# - prey.radius
-  Pa = atan(predator.y[], predator.x[])
-  #println(Pd)
-  #for every posterior particle x/y
-  #check angle comparison to pd
-  angles = zeros(prey.observer.nBparticles, 2)
-  distances = zeros(prey.observer.nBparticles, 2)
-
-  for i in 1:prey.observer.nBparticles
-
-    angles[i,1] = atan(prey.observer.Bparticle[i,2], prey.observer.Bparticle[i,1])
-    angles[i,2] = checkAngle(angles[i,1], Pa)
-    #prey.evaluations[i,1] = angles[i,2]
-
-    distances[i,1] = sqrt(prey.observer.Bparticle[i,1]^2 + prey.observer.Bparticle[i,2]^2)# - prey.radius
-    distances[i,2] = checkDistance(distances[i,1], Pd)
-    #prey.evaluations[i,2] = distances[i,2]
-
-    if 0 < size(prey.evaluations.angles, 1) >= t
-      prey.evaluations.angles[t,i] = angles[i,2]
-      prey.evaluations.distances[t,i] = distances[i,2]
-    end
-  end
-  # if t == 250
-  #   println(distances[250,2])
-  #   println(Pa)
-  #   println(prey.evaluations.distances[250,2500])
-  # end
-
-end
-
-# println(prey.evaluations.distances[250,2300])
-# size(prey.evaluations.angles, 1) > 0
-
-function evaluationCSV(arr::Array{Float64,2}, name::String)
-  filename = string(name, ".csv")
-  df = convert(DataFrame, arr')
-  df |> CSV.write(filename)
-end
-
-function evaluationCSV(arr::Array{Float64,2}, name::String, i::Int64)
-  filename = string(name, i, ".csv")
-  df = convert(DataFrame, arr')
-  df |> CSV.write(filename)
 end

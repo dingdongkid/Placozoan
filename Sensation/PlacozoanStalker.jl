@@ -4,7 +4,7 @@
 
 NO_PLOT = true
 # simulation parameters
-nFrames = 600       # number of animation frames
+nFrames = 600      # number of animation frames
 mat_radius = 400
 approach_Δ = 25.0         # predator closest approach distance
 dt = 1.00
@@ -20,9 +20,7 @@ n_posterior_particles = 2500
 #             n_likelihood_particles, n_prior_particles, n_posterior_particles,
 #             approach_Δ)
 
-#total_evals = Array{Float64,3}(undef, nFrames, 2, n_posterior_particles)
-
-for k in 1:100
+#for k in 1:100
 
 
     # construct prey
@@ -195,8 +193,11 @@ for k in 1:100
              # end
          end
      end
-     evaluationCSV(prey.evaluations.angles, "angles", k)
-     evaluationCSV(prey.evaluations.distances, "distances", k)
+
+     evaluationCSV(prey.evaluations.eval, "evaluations")
+     println(prey.evaluations.eval[600, :])
+    # evaluationCSV(prey.evaluations.angles, "angles")
+    # evaluationCSV(prey.evaluations.distances, "distances")
     #println(total_evals[250,2,250])
 
-end
+#end
