@@ -24,11 +24,11 @@ end
 function checkDistance(d1::Float64, d2::Float64, arr::Array{Float64})
   n = abs(d1-d2)
 
-  if n < 100
+  if n < 1000
     arr[4] += 1
-    if n < 75
+    if n < 500
       arr[5] += 1
-      if n < 50
+      if n < 250
         arr[6] += 1
       end
     end
@@ -60,48 +60,50 @@ function checkAngle(θ1::Float64, θ2::Float64, arr::Array{Float64})
 #  println(arr)
 end
 
-function particleEvaluation(predator::Placozoan, prey::Placozoan, t::Int64)
+#evaluation of all particles, based on discrete criteria for angles and distances
+function particleEvaluation(predator::Placozoan, prey::Placozoan, t::Int64,
+  angleCriteria::Array{Float64}, distanceCriteria::Array{Float64})
 
-  Pd = sqrt(predator.x[]^2 + predator.y[]^2) - predator.radius# - prey.radius
+  Pd = [predator.x[], predator.y[]]
   Pa = atan(predator.y[], predator.x[])
-
-  #for every posterior particle x/y
-  #check compare angle to Pa and distance to Pd
-  angles = zeros(prey.observer.nBparticles, 2)
-  distances = zeros(prey.observer.nBparticles, 2)
-  evalArr = zeros(6)
 
   for i in 1:prey.observer.nBparticles
 
-    angles[i,1] = atan(prey.observer.Bparticle[i,2], prey.observer.Bparticle[i,1])
-    #angles[i,2] = checkAngle(angles[i,1], Pa)
-    checkAngle(angles[i,1], Pa, evalArr)
-    #prey.evaluations[i,1] = angles[i,2]
+    a = atan(prey.observer.Bparticle[i,2], prey.observer.Bparticle[i,1])
 
-    distances[i,1] = sqrt(prey.observer.Bparticle[i,1]^2 + prey.observer.Bparticle[i,2]^2)# - prey.radius
-    #distances[i,2] = checkDistance(distances[i,1], Pd)
-    checkDistance(distances[i,1], Pd, evalArr)
-    #prey.evaluations[i,2] = distances[i,2]
+    #given two angles, find discrete difference
+    # function checkAngle(θ1::Float64, θ2::Float64, arr::Array{Float64})
+    A = (Pa-a)
+    A += A > π ? -2π : A < -π ? 2π : 0
+    A = abs(A)
 
-  end
-  if 0 < size(prey.evaluations.eval, 1) >= t
-    for j in 1:6
-      prey.evaluations.eval[t,j] = evalArr[j]
+    for j in 1:length(prey.evaluations.angles[1,:])
+      if A < angleCriteria[j]
+        prey.evaluations.angles[t,j] +=1
+      end
     end
+
+    #calculate
+    d = sqrt((Pd[1] - prey.observer.Bparticle[i,1])^2 + (Pd[2] - prey.observer.Bparticle[i,2])^2)# - prey.radius
+    for k in 1:length(prey.evaluations.distances[1,:])
+      if d < distanceCriteria[k]
+        prey.evaluations.distances[t,k] +=1
+      end
+    end
+
   end
 
-  #println(evalArr)
-
 end
 
-function evaluationCSV(arr::Array{Float64,2}, name::String)
-  filename = string(name, ".csv")
-  df = convert(DataFrame, arr')
-  df |> CSV.write(filename)
-end
-
-function evaluationCSV(arr::Array{Float64,2}, name::String, i::Int64)
-  filename = string(name, i, ".csv")
-  df = convert(DataFrame, arr')
-  df |> CSV.write(filename)
-end
+# function evaluationCSV(arr::Array{Float64,2}, name::String)
+#   filename = string(name, ".csv")
+#   df = convert(DataFrame, arr')
+#   df |> CSV.write(filename)
+#
+# end
+#
+# function evaluationCSV(arr::Array{Float64,2}, name::String, i::Int64)
+#   filename = string(name, i, ".csv")
+#   df = convert(DataFrame, arr')
+#   df |> CSV.write(filename)
+# end
