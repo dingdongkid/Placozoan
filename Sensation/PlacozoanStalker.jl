@@ -20,7 +20,10 @@ n_posterior_particles = 2500
 #             n_likelihood_particles, n_prior_particles, n_posterior_particles,
 #             approach_Δ)
 
-#for k in 1:100
+angleCriteria = [π/2, π/4, π/8]
+distanceCriteria = [1000., 500., 300.]
+
+for k in 1:1
 
 
     # construct prey
@@ -31,7 +34,7 @@ n_posterior_particles = 2500
     prey = Placozoan(prey_radius, prey_margin, prey_fieldrange,
                       Nreceptors, sizeof_receptor, mat_radius,
                       n_likelihood_particles, n_posterior_particles,
-                      priormean, priorsd, nFrames)
+                      priormean, priorsd, nFrames, length(angleCriteria))
 
     # construct predator
     # nb has dummy observer
@@ -146,12 +149,7 @@ n_posterior_particles = 2500
             likelihood(prey)      # likelihood given receptor states
             sample_likelihood(prey)     # random sample from likelihood
             bayesUpdate(prey)
-            particleEvaluation(predator, prey, i)
-            # for k in 1:prey.observer.nBparticles
-            #     total_evals[i,1,k] = prey.evaluations[k,1]
-            #     total_evals[i,2,k] = prey.evaluations[k,2]
-            # end
-
+            particleEvaluation(predator, prey, i, angleCriteria, distanceCriteria)
 
             (observation, belief) = reflect(prey) # reflect samples into margin
 
@@ -186,7 +184,7 @@ n_posterior_particles = 2500
              likelihood(prey)      # likelihood given receptor states
              sample_likelihood(prey)     # random sample from likelihood
              bayesUpdate(prey)
-             particleEvaluation(predator, prey, i)
+             particleEvaluation(predator, prey, i, angleCriteria, distanceCriteria)
              # for k in 1:prey.observer.nBparticles
              #     total_evals[i,1,k] = prey.evaluations[k,1]
              #     total_evals[i,2,k] = prey.evaluations[k,2]
@@ -194,10 +192,10 @@ n_posterior_particles = 2500
          end
      end
 
-     evaluationCSV(prey.evaluations.eval, "evaluations")
-     println(prey.evaluations.eval[600, :])
+     CSV.write(string("angles", ".csv"), DataFrame(prey.evaluations.angles), header = false)
+     println(prey.evaluations.angles[600, :])
     # evaluationCSV(prey.evaluations.angles, "angles")
     # evaluationCSV(prey.evaluations.distances, "distances")
     #println(total_evals[250,2,250])
 
-#end
+end
